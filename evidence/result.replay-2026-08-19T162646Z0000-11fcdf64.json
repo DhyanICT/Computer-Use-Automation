@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "outputs": {
+    "member_found": true,
+    "member_name": "Avery Johnson",
+    "savings_balance": "<currency>"
+  },
+  "run_id": "replay-2026-08-19T162646Z0000-11fcdf64"
+}

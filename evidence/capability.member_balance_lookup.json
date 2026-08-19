@@ -1,0 +1,248 @@
+{
+  "schema_version": "cua.capability.v1",
+  "capability_id": "member_balance_lookup",
+  "name": "Lookup member savings balance",
+  "description": "Looks up a member in the local legacy core console and returns the member name and current savings balance.",
+  "target_app": "fiserv-classic-console-demo",
+  "target_url": "http://127.0.0.1:57673/",
+  "created_at": "2026-08-19T16:26:46+00:00",
+  "created_by": "scripted-local-planner",
+  "discovery_run_id": "discovery-2026-08-19T162643Z0000-7bde71a8",
+  "policy_ref": "config/policy.json",
+  "parameters": {
+    "member_id": {
+      "type": "string",
+      "required": true,
+      "description": "Member number supplied by the calling agent. Stored as a parameter, not as a literal artifact value.",
+      "sensitive": true,
+      "pattern": "^\\d{5,12}$"
+    }
+  },
+  "outputs": {
+    "member_found": {
+      "type": "boolean",
+      "description": "False when the member lookup returns a known not-found outcome."
+    },
+    "member_name": {
+      "type": "string",
+      "description": "Visible member name from the profile screen."
+    },
+    "savings_balance": {
+      "type": "currency_string",
+      "description": "Visible savings balance exactly as displayed by the application."
+    }
+  },
+  "steps": [
+    {
+      "id": "open_member_servicing",
+      "action": "click",
+      "description": "The goal requires member data, so open the member servicing module from the operator home screen.",
+      "target": {
+        "strategy": "visible_text",
+        "label": null,
+        "text": "Member Servicing",
+        "role": "link",
+        "css": "body > div:nth-of-type(3) > table > tbody > tr:nth-of-type(2) > td:nth-of-type(2) > a",
+        "frame": "main",
+        "rationale": "Visible link text is stable across branded tenant variants even when DOM ids are absent.",
+        "extractor": {}
+      },
+      "value_template": null,
+      "output_key": null,
+      "risk": "safe",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "fill_member_id",
+      "action": "fill",
+      "description": "The member lookup screen has a row-labeled member/account input. Use a parameter instead of recording the literal value.",
+      "target": {
+        "strategy": "row_label",
+        "label": "Member / Account Number",
+        "text": null,
+        "role": "input",
+        "css": "body > div:nth-of-type(3) > form > table > tbody > tr:nth-of-type(1) > td:nth-of-type(2) > input",
+        "frame": "main",
+        "rationale": "Legacy table row labels are more robust here than generated CSS paths.",
+        "extractor": {}
+      },
+      "value_template": "{{member_id}}",
+      "output_key": null,
+      "risk": "safe",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "submit_member_search",
+      "action": "click",
+      "description": "Submit the lookup form after the parameterized member id has been entered.",
+      "target": {
+        "strategy": "visible_text",
+        "label": null,
+        "text": "Search",
+        "role": "button",
+        "css": "body > div:nth-of-type(3) > form > table > tbody > tr:nth-of-type(3) > td:nth-of-type(2) > button",
+        "frame": "main",
+        "rationale": "Button text is short, visible, and stable for replay.",
+        "extractor": {}
+      },
+      "value_template": null,
+      "output_key": null,
+      "risk": "safe",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "open_member_profile",
+      "action": "click",
+      "description": "The search results contain a matching member row; open the profile detail page.",
+      "target": {
+        "strategy": "visible_text",
+        "label": null,
+        "text": "Open Profile",
+        "role": "link",
+        "css": "body > div:nth-of-type(3) > table > tbody > tr:nth-of-type(2) > td:nth-of-type(4) > a",
+        "frame": "main",
+        "rationale": "The profile link is identified by its visible action text rather than a brittle table coordinate alone.",
+        "extractor": {}
+      },
+      "value_template": null,
+      "output_key": null,
+      "risk": "safe",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "extract_member_name",
+      "action": "extract",
+      "description": "Capture the member name output from the profile table row.",
+      "target": {
+        "strategy": "near_text",
+        "label": "Member Name",
+        "text": null,
+        "role": null,
+        "css": null,
+        "frame": "main",
+        "rationale": "The value is the sibling cell next to a stable row label.",
+        "extractor": {
+          "type": "table_row_value",
+          "label": "Member Name"
+        }
+      },
+      "value_template": null,
+      "output_key": "member_name",
+      "risk": "safe",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "extract_savings_balance",
+      "action": "extract",
+      "description": "Read the current savings balance from the detail page.",
+      "target": {
+        "strategy": "near_text",
+        "label": "Savings Balance",
+        "text": null,
+        "role": null,
+        "css": null,
+        "frame": "main",
+        "rationale": "The balance is stored as a visible table value adjacent to its label, matching many legacy back-office screens.",
+        "extractor": {
+          "type": "table_row_value",
+          "label": "Savings Balance"
+        }
+      },
+      "value_template": null,
+      "output_key": "savings_balance",
+      "risk": "safe",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "verify_profile_checkpoint",
+      "action": "checkpoint",
+      "description": "Verify the final state before saving the capability.",
+      "target": {
+        "strategy": "visible_text",
+        "label": null,
+        "text": "Member Profile",
+        "role": null,
+        "css": null,
+        "frame": "main",
+        "rationale": "This checkpoint confirms the run reached the expected profile page.",
+        "extractor": {}
+      },
+      "value_template": null,
+      "output_key": null,
+      "risk": "safe",
+      "timeout_ms": 5000
+    }
+  ],
+  "success_condition": {
+    "text_present": "Member Profile"
+  },
+  "business_outcomes": [
+    {
+      "code": "member_not_found",
+      "status": "business_outcome",
+      "when": {
+        "text_present": "No member found"
+      },
+      "message": "The target application completed the lookup and reported no matching member.",
+      "outputs": {
+        "member_found": false
+      }
+    }
+  ],
+  "error_contract": {
+    "success": {
+      "status": "success",
+      "outputs": [
+        "member_found",
+        "member_name",
+        "savings_balance"
+      ]
+    },
+    "business_outcome": {
+      "status": "business_outcome",
+      "codes": [
+        "member_not_found"
+      ]
+    },
+    "recoverable": {
+      "codes": [
+        "transient_host_notice"
+      ],
+      "behavior": "dismiss known interstitial and continue"
+    },
+    "failure": {
+      "codes": [
+        "validation_error",
+        "permission_denied",
+        "checkpoint_failed",
+        "step_failed"
+      ],
+      "includes": [
+        "step_id",
+        "message",
+        "screenshot",
+        "dom_snapshot"
+      ]
+    },
+    "escalated": {
+      "codes": [
+        "human_intervention_required"
+      ],
+      "behavior": "pause same session and transfer control"
+    }
+  },
+  "tenant_model": {
+    "vendor_product": "fiserv-classic-console-demo",
+    "artifact_scope": "vendor_base",
+    "tenant_overrides": {
+      "allowed": true,
+      "examples": [
+        "target_url",
+        "branding text",
+        "alternate label synonyms",
+        "known interstitial handlers"
+      ]
+    },
+    "drift_detection": "Replay records locator fallback used, checkpoint result, screenshots on failure, and can be replayed as a tenant smoke test."
+  }
+}

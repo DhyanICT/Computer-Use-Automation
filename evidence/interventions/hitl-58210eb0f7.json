@@ -1,0 +1,42 @@
+{
+  "id": "hitl-58210eb0f7",
+  "created_at": "2026-08-19T16:26:53+00:00",
+  "status": "resumed",
+  "control_owner": "automation",
+  "reason": "Risky irreversible operation requires a human operator",
+  "context": {
+    "step": "freeze_card",
+    "target": {
+      "strategy": "visible_text",
+      "label": null,
+      "text": "Freeze Card",
+      "role": "link",
+      "css": null,
+      "frame": "main",
+      "rationale": "",
+      "extractor": {}
+    }
+  },
+  "debug_url": "http://127.0.0.1:54063",
+  "same_session": true,
+  "screenshot": "C:\\Users\\dhyan\\OneDrive\\Documents\\Atlas\\computer-use-automation-system\\evidence\\interventions\\hitl-58210eb0f7.png",
+  "dom_snapshot": "C:\\Users\\dhyan\\OneDrive\\Documents\\Atlas\\computer-use-automation-system\\evidence\\interventions\\hitl-58210eb0f7.html",
+  "resume_file": "C:\\Users\\dhyan\\OneDrive\\Documents\\Atlas\\computer-use-automation-system\\evidence\\interventions\\hitl-58210eb0f7.resume.json",
+  "resume": {
+    "resumed_at": "2026-08-19T16:26:54+00:00",
+    "decision": "declined_risky_action",
+    "summary": "Operator inspected the live session and declined to freeze the card.",
+    "human_actions": [
+      {
+        "actor": "human_operator",
+        "action": "click",
+        "target": "Freeze Card"
+      },
+      {
+        "actor": "human_operator",
+        "action": "click",
+        "target": "Cancel"
+      }
+    ]
+  }
+}

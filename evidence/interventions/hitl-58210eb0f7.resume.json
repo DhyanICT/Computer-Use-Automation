@@ -1,0 +1,17 @@
+{
+  "resumed_at": "2026-08-19T16:26:54+00:00",
+  "decision": "declined_risky_action",
+  "summary": "Operator inspected the live session and declined to freeze the card.",
+  "human_actions": [
+    {
+      "actor": "human_operator",
+      "action": "click",
+      "target": "Freeze Card"
+    },
+    {
+      "actor": "human_operator",
+      "action": "click",
+      "target": "Cancel"
+    }
+  ]
+}

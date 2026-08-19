@@ -1,0 +1,14 @@
+{
+  "status": "business_outcome",
+  "code": "member_not_found",
+  "step_id": "open_member_profile",
+  "message": "The target application completed the lookup and reported no matching member.",
+  "outputs": {
+    "member_found": false
+  },
+  "evidence": {
+    "screenshot": "C:\\Users\\dhyan\\OneDrive\\Documents\\Atlas\\computer-use-automation-system\\evidence\\replay.replay-2026-08-19T162649Z0000-4698f4d9.member_not_found.png",
+    "dom_snapshot": "C:\\Users\\dhyan\\OneDrive\\Documents\\Atlas\\computer-use-automation-system\\evidence\\replay.replay-2026-08-19T162649Z0000-4698f4d9.member_not_found.html"
+  },
+  "run_id": "replay-2026-08-19T162649Z0000-4698f4d9"
+}

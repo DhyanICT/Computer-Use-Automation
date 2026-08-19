@@ -1,0 +1,29 @@
+{
+  "allowed_origins": [
+    "http://127.0.0.1:*",
+    "http://localhost:*"
+  ],
+  "allowed_actions": [
+    "navigate",
+    "click",
+    "fill",
+    "extract",
+    "checkpoint",
+    "wait",
+    "screenshot",
+    "handoff"
+  ],
+  "risky_action_policy": "escalate",
+  "sensitive_patterns": [
+    {
+      "name": "member_id",
+      "regex": "(?<!:)\\b\\d{5,12}\\b",
+      "replacement": "<member_id>"
+    },
+    {
+      "name": "currency",
+      "regex": "\\$\\d{1,3}(?:,\\d{3})*(?:\\.\\d{2})?",
+      "replacement": "<currency>"
+    }
+  ]
+}
