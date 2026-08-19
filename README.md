@@ -88,7 +88,7 @@ $env:OPENAI_MODEL = "gpt-4.1-mini"
 $env:OPENAI_BASE_URL = "https://api.openai.com/v1/chat/completions"
 ```
 
-I could not generate paid OpenAI evidence in my local run because I did not want to add billing credits, but the OpenAI-compatible path is implemented in `src/cua_sys/llm.py`.
+I did not use paid OpenAI API credits for my local evidence run because I did not want to add billing. The OpenAI-compatible path is still implemented in `src/cua_sys/llm.py`, so the same project can be rerun with `--llm openai` if API credits are available.
 
 ## Manual two-terminal demo
 
