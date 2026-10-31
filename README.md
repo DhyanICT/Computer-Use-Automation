@@ -1,130 +1,115 @@
-# Computer-Use Automation System
+# Computer-Use Automation
+
+**An agent learns a UI task once; after that, the task replays deterministically with new inputs and no LLM in the loop.**
+
+Legacy back-office software rarely has an API, and letting an LLM decide every click is slow, costly and hard to audit. This system splits the problem in two:
+
+1. **Discover.** A planner (an LLM, or an offline scripted planner) drives Chrome through the task once.
+2. **Compile.** The successful run is saved as a typed, parameterised capability artifact (`cua.capability.v1`).
+3. **Replay.** Later runs execute the artifact directly, with policy checks, redaction, business-outcome detection and human handoff for risky actions.
+
+Everything runs against a bundled legacy-style banking console, so there are no real accounts, credentials or public websites involved.
 
 Author: Dhyan Patel
 
-This project is my implementation of a small computer-use automation system. The main idea is:
+## Verified behaviour
 
-1. Use an agent-style discovery run to figure out how to complete a task in a UI.
-2. Save that successful run as a structured capability artifact.
-3. Replay the artifact later without asking an LLM to decide every step again.
+A full `python run.py demo --llm scripted` run from a fresh clone produces:
 
-I built a local legacy-style banking console as the target app so the project can be run safely without real bank data, real credentials, or a public website. The app uses table-based layouts and visible labels instead of clean test IDs, because that is closer to the type of old back-office software described in the assignment.
+| Scenario | Result |
+| --- | --- |
+| Discovery for member `12345` | Artifact written to `artifacts/member_balance_lookup.json` |
+| Replay for member `12345` | `success`: member name returned, balance redacted as `<currency>` in logs |
+| Replay for member `99999` | `business_outcome: member_not_found`, reported as an outcome, not a crash |
+| Risky "Freeze Card" action | `escalated` to a human operator, then resumed in the same browser session |
+| Unit tests | 4 of 4 pass |
 
-## What this project does
+## Architecture
 
-The demo flow looks up a member and reads their savings balance.
-
-The system can:
-
-- start a local target app,
-- launch Chrome,
-- observe the visible UI,
-- click and type into the page,
-- record the discovered flow as a typed JSON artifact,
-- replay that artifact deterministically,
-- return extracted outputs,
-- detect a known business outcome like `member_not_found`,
-- enforce a local allowlist and redaction policy,
-- pause for human handoff on a risky action.
-
-## Project structure
-
-- `src/target_app/`: the local legacy-style banking app.
-- `src/cua_sys/cdp.py`: small Chrome DevTools Protocol browser controller.
-- `src/cua_sys/llm.py`: planner interface with two providers:
-  - `scripted`: local/offline planner for verification without paid API credits.
-  - `openai`: OpenAI-compatible planner for a real LLM-backed discovery run.
-- `src/cua_sys/engine.py`: discovery and replay logic.
-- `src/cua_sys/handoff.py`: human handoff request/resume flow.
-- `config/policy.json`: allowed origins, allowed actions, risky-action behavior, and redaction rules.
-- `artifacts/member_balance_lookup.json`: generated reusable capability artifact.
-- `evidence/`: logs, screenshots, DOM snapshots, results, and handoff evidence.
-- `REPORT.md`: design write-up using the assignment's required headings.
-
-## Requirements
-
-- Python 3.11 or newer.
-- Chrome or Edge installed.
-- No Python package install is needed for the offline demo.
-- Optional for real LLM discovery: `OPENAI_API_KEY`.
-
-If Chrome is not found automatically, set:
-
-```powershell
-$env:CHROME_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```mermaid
+flowchart LR
+  G["Goal and typed parameters"] --> P["Planner: LLM or scripted"]
+  P -->|"next action"| B["CDP browser controller"]
+  B -->|"observation"| P
+  B --> A[("Capability artifact")]
+  A --> R["Deterministic replay"]
+  R --> POL{"Policy"}
+  POL -->|"allowed"| OUT["Structured result and evidence"]
+  POL -->|"risky action"| H["Human handoff"]
+  H -->|"resume"| R
 ```
 
-## Run the local demo
+| Module | Responsibility |
+| --- | --- |
+| `cdp.py` | Chrome DevTools Protocol client written from scratch over WebSockets, with no third-party packages |
+| `llm.py` | Planner contract with two providers: `scripted` (offline) and `openai` (any OpenAI-compatible endpoint, JSON output) |
+| `engine.py` | Discovery loop, artifact compilation and replay with checkpoint verification |
+| `policy.py` | Origin and action allowlists; risky actions escalate instead of executing |
+| `redaction.py` | Masks member numbers and currency values in logs and results |
+| `handoff.py` | Pauses the run, saves a screenshot and DOM snapshot, and resumes in the same session |
+| `evidence.py` | JSONL logs, screenshots and DOM snapshots for every run |
 
-From the project root:
+## The capability artifact
+
+Discovery doesn't record literal values or brittle selectors. Each step targets an element the way a person would find it, and keeps the CSS path only as a fallback hint. This step is taken from the generated artifact:
+
+```json
+{
+  "id": "fill_member_id",
+  "action": "fill",
+  "target": {
+    "strategy": "row_label",
+    "label": "Member / Account Number",
+    "role": "input",
+    "rationale": "Legacy table row labels are more robust here than generated CSS paths."
+  },
+  "value_template": "{{member_id}}"
+}
+```
+
+The full artifact also declares typed parameters and outputs, a success condition, known business outcomes, an error contract and a policy reference, so a replay can be validated before it runs.
+
+## Safety by design
+
+- **Allowlists.** Only `localhost` origins and eight action types (`navigate`, `click`, `fill`, `extract`, `checkpoint`, `wait`, `screenshot`, `handoff`) are permitted. See [`config/policy.json`](config/policy.json).
+- **No secrets in artifacts.** The member ID is stored as `{{member_id}}`, never as a literal.
+- **Redaction.** Member-number-like values and currency amounts are masked before anything is logged.
+- **Human handoff.** Irreversible actions such as freezing a card pause for an operator, who can inspect the live session and approve or decline. The demo includes a scripted operator response.
+
+## Run it
+
+**Requirements:** Python 3.11+ and Chrome or Edge. The offline demo needs no `pip install`.
 
 ```powershell
 python run.py demo --llm scripted
 ```
 
-This runs the full local version:
+If Chrome isn't found automatically, set `CHROME_PATH` to the browser executable.
 
-1. Discovery for member `12345`.
-2. Artifact generation at `artifacts/member_balance_lookup.json`.
-3. Deterministic replay for member `12345`.
-4. Replay for member `99999`, which returns `member_not_found`.
-5. Human handoff demo for a risky `Freeze Card` action.
+### With an LLM planner
 
-The scripted planner is included so the project can be verified without paying for API credits. It uses the same action contract as the OpenAI planner, so the replay/artifact/safety path is the same.
-
-## Run with an OpenAI-compatible LLM
-
-For the strongest assignment submission, the discovery evidence should be regenerated with a real LLM call:
+The `openai` planner works with any OpenAI-compatible chat completions endpoint:
 
 ```powershell
 $env:OPENAI_API_KEY = "your_key_here"
+$env:OPENAI_MODEL = "gpt-4.1-mini"             # optional
+$env:OPENAI_BASE_URL = "https://api.openai.com/v1/chat/completions"   # optional
 python run.py demo --llm openai
 ```
 
-Optional settings:
+The committed evidence in [`evidence/`](evidence/) was produced with the scripted planner, which follows the same action contract, so the artifact, replay and safety paths are identical.
+
+### Step by step
 
 ```powershell
-$env:OPENAI_MODEL = "gpt-4.1-mini"
-$env:OPENAI_BASE_URL = "https://api.openai.com/v1/chat/completions"
-```
-
-I did not use paid OpenAI API credits for my local evidence run because I did not want to add billing. The OpenAI-compatible path is still implemented in `src/cua_sys/llm.py`, so the same project can be rerun with `--llm openai` if API credits are available.
-
-## Manual two-terminal demo
-
-Terminal 1:
-
-```powershell
-python run.py serve-target --port 8088
-```
-
-Terminal 2:
-
-```powershell
+python run.py serve-target --port 8088          # terminal 1
 python run.py discover --llm scripted --target http://127.0.0.1:8088/ --member-id 12345 --goal "Look up member 12345 and read their current savings balance."
 python run.py replay --target http://127.0.0.1:8088/ --member-id 12345
 python run.py replay --target http://127.0.0.1:8088/ --member-id 99999
 python run.py demo-handoff --target http://127.0.0.1:8088/ --member-id 12345
 ```
 
-The replay commands do not use an LLM. They load the saved artifact, fill in `{{member_id}}`, execute the recorded steps, verify the checkpoint, and return a structured result.
-
-## Evidence
-
-After running the demo, `/evidence/` contains:
-
-- `capability.member_balance_lookup.json`: copy of the generated artifact.
-- `discovery.*.jsonl`: discovery observations, planner decisions, and actions.
-- `discovery.*.success.png`: final discovery screenshot.
-- `replay.*.jsonl`: deterministic replay logs.
-- `result.replay.*.json`: structured replay result.
-- `replay.*.success.png`: successful replay screenshot.
-- `replay.*.member_not_found.*`: evidence for the not-found business outcome.
-- `handoff.*.jsonl`: handoff log.
-- `result.handoff.*.json`: structured handoff result.
-- `interventions/*`: human intervention request, screenshot, DOM snapshot, resume file, and recorded human actions.
-
-Run IDs are generated each time, so the filenames will not exactly match between runs.
+Replay commands never call an LLM. They load the artifact, fill in parameters, execute the steps, verify the checkpoint and return a structured result.
 
 ## Tests
 
@@ -132,12 +117,18 @@ Run IDs are generated each time, so the filenames will not exactly match between
 python -m unittest discover -s tests
 ```
 
-The tests cover policy allowlisting, redaction behavior, parameter materialization, and loading the generated artifact schema.
+The tests cover policy allowlisting, redaction, parameter materialisation and the artifact schema.
 
-## Safety notes
+## Design write-up
 
-I do not store the literal member id in the artifact. The artifact stores `{{member_id}}` as a parameter. Logs and results go through the redactor, which masks member-number-like values and currency values. Risky actions are escalated instead of executed automatically.
+[REPORT.md](REPORT.md) covers the design decisions, failure modes and trade-offs in detail.
+
+## Next steps
+
+- Regenerate the discovery evidence with a live LLM planner.
+- Add self-healing replay: when a locator fails, fall back to a scoped re-discovery instead of failing the run.
+- Support multi-capability workflows that chain artifacts.
 
 ## Notice on GenAI usage
 
-I used GenAI tools while building this project, mainly for boilerplate, code structure, documentation structure, and improvement suggestions. I did not use GenAI as a replacement for understanding the assignment or the design decisions. I reviewed the code, ran the tests, generated the evidence, and made the final implementation choices myself.
+I used GenAI tools while building this project, mainly for boilerplate, code structure, documentation structure and improvement suggestions. I did not use GenAI as a replacement for understanding the assignment or the design decisions. I reviewed the code, ran the tests, generated the evidence and made the final implementation choices myself.
